@@ -1,6 +1,6 @@
 # StreamGuard
 
-![StreamGuard Logo](path/to/logo.png) <!-- Placeholder: Add a logo if created, e.g., via AI generator -->
+![StreamGuard Logo](assets/logo.jpg) <!-- Placeholder: Add a logo if created, e.g., via AI generator -->
 
 **StreamGuard** is an open-source web-based frontend for the ComplianceAsCode (CAC) GitHub project, designed as a free alternative to commercial tools like Tenable. It focuses on STIG (Security Technical Implementation Guide) compliance for Linux distributions, enabling users in DevSecOps and Cybersecurity to audit, mitigate, and harden systems efficiently. Key highlights include live fetching of CAC content, automated ISO building for hardened installs, multi-host scanning and remediation via Ansible, customizable reports with charts/graphs/tables, and support for custom STIG profiles.
 
@@ -220,6 +220,13 @@ See `/docs` for Swagger UI. Key ones:
 - `POST /mitigate`: Similar, with dry_run.
 - `POST /build_iso/{distro}`: {base_iso_path or url}.
 - `CRUD /profiles`: List/edit/save customs.
+
+Example curl calls:
+```
+curl -X GET "http://localhost:8000/api/fetch_stig/rhel?offline=true"
+curl -X POST "http://localhost:8000/api/audit" -H "Content-Type: application/json" \
+  -d '{"hosts":["localhost"],"distro":"rhel","profile_name":"stig","profile_path":"/path/to/xccdf.xml"}'
+```
 
 ## Security Considerations
 - No password storage—SSH keys only.
