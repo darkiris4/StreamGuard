@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    openscap-scanner \
+    ansible \
+    xorriso \
+    && rm -rf /var/lib/apt/lists/*
+
+# Mount SSH key volume at /app/ssh (e.g., -v ~/.ssh/id_ed25519:/app/ssh/id_ed25519:ro)
+RUN mkdir -p /app/ssh
+
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+COPY alembic.ini /app/alembic.ini
+COPY entrypoint.sh /app/entrypoint.sh
+COPY backend /app/backend
+
+WORKDIR /app/backend
+EXPOSE 8000
+
+RUN chmod +x /app/entrypoint.sh
+
+CMD ["/app/entrypoint.sh"]

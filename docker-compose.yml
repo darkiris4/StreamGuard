@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: streamguard
+      POSTGRES_USER: streamguard
+      POSTGRES_PASSWORD: streamguard
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://streamguard:streamguard@db:5432/streamguard
+      - DATABASE_URL_SYNC=postgresql://streamguard:streamguard@db:5432/streamguard
+      - CAC_GITHUB_URL=https://github.com/ComplianceAsCode/content
+      - OFFLINE_MODE=false
+      - SSH_KEY_PATH=/app/ssh/id_ed25519
+      - SSH_USER=root
+      - MAX_CONCURRENT_HOSTS=10
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    volumes:
+      - ./backend/cac_cache:/app/backend/cac_cache
+      - ./backend/ansible:/app/backend/ansible
+      - ./isos:/app/isos
+      - ~/.ssh/id_ed25519:/app/ssh/id_ed25519:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

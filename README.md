@@ -135,9 +135,10 @@ streamguard/
 
 ### Quick Start with Docker
 1. Clone the repo: `git clone https://github.com/yourusername/streamguard.git && cd streamguard`
-2. Copy `.env.example` to `.env` and fill in vars (e.g., DB_URL).
-3. Run: `docker-compose up -d`
-4. Access at `http://localhost:3000` (frontend) or `http://localhost:8000/docs` (API docs via Swagger).
+2. Copy `.env.example` to `.env` and fill in vars (e.g., `DATABASE_URL_SYNC`).
+3. Mount your SSH key into the backend container (e.g., `~/.ssh/id_ed25519:/app/ssh/id_ed25519:ro`).
+4. Run: `docker-compose up -d` (migrations auto-apply on start).
+5. Access at `http://localhost:3000` (frontend) or `http://localhost:8000/docs` (API docs via Swagger).
 
 ### Manual Setup
 1. **Backend**:
@@ -148,20 +149,19 @@ streamguard/
    - `cd frontend`
    - `npm install`
    - `npm run dev`
-3. Set up PostgreSQL: Create DB and update `DB_URL` in env.
-4. For dev DB: Use SQLite by setting `DB_URL=sqlite:///streamguard.db`
+3. Set up PostgreSQL: Create DB and update `DATABASE_URL_SYNC` in env.
+4. For dev DB: Use SQLite by setting `DATABASE_URL_SYNC=sqlite:///streamguard.db`
 
 ## Configuration
 
 ### Environment Variables
 Copy `.env.example` and customize:
-- `DB_URL=postgresql://user:pass@localhost/db` (or sqlite:///)
-- `CAC_GITHUB_URL=https://github.com/ComplianceAsCode/content` (default)
+- `DATABASE_URL_SYNC=postgresql://user:pass@localhost/db` (or sqlite:///)
+- `DATABASE_URL=postgresql+asyncpg://user:pass@localhost/db` (future async usage)
 - `OFFLINE_MODE=false` (toggle to true for caching)
-- `SSH_KEY_PATH=/path/to/id_rsa` (global key; per-user support planned)
+- `SSH_KEY_PATH=/path/to/id_ed25519` (global key; per-user support planned)
 - `ANSIBLE_INVENTORY=/path/to/hosts.ini` (default dynamic)
-- `SECRET_KEY=your_jwt_secret` (for auth if enabled)
-- `BASE_ISO_URLS={"fedora": "https://download.fedoraproject.org/..."}` (JSON for auto-fetch)
+- `CORS_ORIGINS=http://localhost:5173,http://localhost:3000`
 
 ### SSH Key Setup for Hosts
 - Generate SSH key: `ssh-keygen -t ed25519`
