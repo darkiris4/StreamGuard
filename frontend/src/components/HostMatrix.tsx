@@ -1,5 +1,5 @@
 import { Card } from "@mui/material";
-import { DataGridPro, GridColDef } from "@mui/x-data-grid-pro";
+import { DataGrid, GridColDef, GridToolbar } from "@mui/x-data-grid";
 
 type Props = {
   rows: Record<string, unknown>[];
@@ -16,11 +16,11 @@ const columns: GridColDef[] = [
 export default function HostMatrix({ rows }: Props) {
   return (
     <Card sx={{ height: 360 }}>
-      <DataGridPro
+      <DataGrid
         rows={rows}
         columns={columns}
         getRowId={(row) => row.id ?? row.host}
-        showToolbar
+        slots={{ toolbar: GridToolbar }}
       />
     </Card>
   );

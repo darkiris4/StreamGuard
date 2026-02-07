@@ -6,7 +6,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { DataGridPro, GridColDef } from "@mui/x-data-grid-pro";
+import { DataGrid, GridColDef } from "@mui/x-data-grid";
 
 import {
   createHost,
@@ -123,7 +123,7 @@ export default function Hosts() {
         </Grid>
       </Grid>
       <Box sx={{ height: 420 }}>
-        <DataGridPro
+        <DataGrid
           rows={rows}
           columns={columns}
           getRowId={(row) => row.id}

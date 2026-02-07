@@ -6,7 +6,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { GridColDef } from "@mui/x-data-grid-pro";
+import { GridColDef } from "@mui/x-data-grid";
 
 import { runAudit } from "../api/endpoints";
 import ReportDataGrid from "../components/ReportDataGrid";
