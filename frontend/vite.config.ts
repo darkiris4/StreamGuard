@@ -8,6 +8,13 @@ export default defineConfig({
     fs: {
       allow: [".."],
     },
+    proxy: {
+      "/docs": {
+        target: "http://docs:3001",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   assetsInclude: ["**/*.jpg", "**/*.jpeg", "**/*.png"],
 });

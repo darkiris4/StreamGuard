@@ -140,6 +140,14 @@ streamguard/
 4. Run: `docker-compose up -d` (migrations auto-apply on start).
 5. Access at `http://localhost:3000` (frontend) or `http://localhost:8000/docs` (API docs via Swagger).
 
+### Docs
+Run the user guide locally:
+```bash
+cd docs
+npm start
+```
+Preview at `http://localhost:3000/docs`.
+
 ### Manual Setup
 1. **Backend**:
    - `cd backend`

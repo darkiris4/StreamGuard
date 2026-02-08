@@ -24,6 +24,7 @@ import FactCheckIcon from "@mui/icons-material/FactCheck";
 import BuildIcon from "@mui/icons-material/Build";
 import LibraryBooksIcon from "@mui/icons-material/LibraryBooks";
 import ImageIcon from "@mui/icons-material/Image";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import client from "../api/client";
 const logoUrl = "/assets/logo.jpg";
@@ -37,6 +38,7 @@ const navItems = [
   { label: "Mitigate", path: "/mitigate", icon: <BuildIcon /> },
   { label: "ISO Builder", path: "/iso", icon: <ImageIcon /> },
   { label: "Profiles", path: "/profiles", icon: <LibraryBooksIcon /> },
+  { label: "User Guide", path: "/docs/intro", icon: <HelpOutlineIcon />, external: true },
 ];
 
 export default function Layout() {
@@ -77,8 +79,9 @@ export default function Layout() {
           {navItems.map((item) => (
             <ListItemButton
               key={item.path}
-              component={NavLink}
-              to={item.path}
+              component={item.external ? "a" : NavLink}
+              to={item.external ? undefined : item.path}
+              href={item.external ? item.path : undefined}
               onClick={() => setMobileOpen(false)}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>
