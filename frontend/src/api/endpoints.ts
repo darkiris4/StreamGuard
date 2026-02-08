@@ -54,18 +54,7 @@ export const createProfile = (payload: {
 
 export const listHosts = () => client.get("/api/hosts");
 
-export const createHost = (payload: {
-  hostname: string;
-  ip_address: string;
-  ssh_user: string;
-  os_distro: string;
-  os_version: string;
-}) => client.post("/api/hosts", payload);
-
-export const updateHost = (id: number, payload: Record<string, unknown>) =>
-  client.put(`/api/hosts/${id}`, payload);
-
-export const deleteHost = (id: number) => client.delete(`/api/hosts/${id}`);
+export const refreshHosts = () => client.post("/api/hosts/refresh");
 
 export const testHostConnection = (payload: {
   hostname: string;

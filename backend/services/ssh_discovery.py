@@ -202,49 +202,82 @@ def sync_known_hosts_to_db() -> Tuple[int, int]:
     # 4. Upsert into database
     session: Session = get_session()
     created = 0
+    updated = 0
     with session:
-        existing_hostnames = {
-            h.hostname for h in session.exec(select(Host)).all()
+        existing_hosts = {
+            h.hostname: h for h in session.exec(select(Host)).all()
         }
-        existing_ips = {
-            h.ip_address for h in session.exec(select(Host)).all()
-            if h.ip_address
+        # Also index by alias for duplicate checks
+        existing_aliases = {
+            h.alias: h for h in existing_hosts.values() if h.alias
         }
 
         for hostname, entry in to_import.items():
-            # Skip if already exists by hostname or IP
             alias = entry.get("host", hostname)
-            if hostname in existing_hostnames or alias in existing_hostnames:
-                continue
-            if hostname in existing_ips:
-                continue
 
             # Resolve per-host SSH key if specified in config
             identity = entry.get("identityfile", "")
             if identity:
-                # Expand ~/.ssh/ paths to container mount path
                 identity = identity.replace("~/.ssh/", str(SSH_DIR) + "/")
                 identity = identity.replace("$HOME/.ssh/", str(SSH_DIR) + "/")
 
+            # Parse port
+            port = 22
+            if entry.get("port"):
+                try:
+                    port = int(entry["port"])
+                except ValueError:
+                    pass
+
+            # Check if this host already exists — update it with fresh config data
+            existing = existing_hosts.get(hostname) or existing_aliases.get(alias)
+            if existing:
+                changed = False
+                if not existing.alias and alias:
+                    existing.alias = alias
+                    changed = True
+                if not existing.identity_file and (identity or default_key):
+                    existing.identity_file = identity or default_key
+                    changed = True
+                if existing.port == 22 and port != 22:
+                    existing.port = port
+                    changed = True
+                if not existing.proxy_jump and entry.get("proxyjump"):
+                    existing.proxy_jump = entry["proxyjump"]
+                    changed = True
+                if existing.ssh_user == "root" and entry.get("user"):
+                    existing.ssh_user = entry["user"]
+                    changed = True
+                if changed:
+                    existing.source = "ssh_config"
+                    session.add(existing)
+                    updated += 1
+                continue
+
             host = Host(
+                alias=alias,
                 hostname=hostname,
-                ip_address="",
                 ssh_user=entry.get("user", settings.ssh_user),
+                port=port,
+                identity_file=identity or default_key,
+                proxy_jump=entry.get("proxyjump", ""),
                 ssh_key_path=identity or default_key,
-                source="ssh_config" if entry.get("hostname") or entry.get("user") else "known_hosts",
+                source="ssh_config",
             )
             session.add(host)
             created += 1
-            existing_hostnames.add(hostname)
+            existing_hosts[hostname] = host
 
-        if created:
+        if created or updated:
             session.commit()
 
     logger.info(
-        "SSH host discovery: found %d hosts (%d from config, %d from known_hosts), created %d new entries",
+        "SSH host discovery: found %d hosts (%d from config, %d from known_hosts), "
+        "created %d new, updated %d existing",
         len(to_import),
         len(config_entries),
         len(known_hostnames),
         created,
+        updated,
     )
     return len(to_import), created

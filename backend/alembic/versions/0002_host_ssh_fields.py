@@ -1,4 +1,4 @@
-"""add ssh_key_path and source columns to host table
+"""add ssh_key_path and source to host table
 
 Revision ID: 0002_host_ssh_fields
 Revises: 0001_initial

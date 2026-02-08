@@ -5,7 +5,8 @@ from sqlmodel import Session, select
 from core.config import settings
 from db import get_session
 from models.host import Host
-from schemas.host import HostConnectionTest, HostCreate, HostResponse, HostUpdate
+from schemas.host import HostConnectionTest, HostResponse
+from services.ssh_discovery import sync_known_hosts_to_db
 
 
 router = APIRouter(tags=["hosts"])
@@ -18,25 +19,6 @@ def list_hosts():
         return list(session.exec(select(Host)))
 
 
-@router.post("/hosts", response_model=HostResponse)
-def create_host(payload: HostCreate):
-    session: Session = get_session()
-    with session:
-        host = Host(
-            hostname=payload.hostname,
-            ip_address=payload.ip_address,
-            ssh_user=payload.ssh_user,
-            os_distro=payload.os_distro,
-            os_version=payload.os_version,
-            ssh_key_path=payload.ssh_key_path,
-            source="manual",
-        )
-        session.add(host)
-        session.commit()
-        session.refresh(host)
-        return host
-
-
 @router.get("/hosts/{host_id}", response_model=HostResponse)
 def get_host(host_id: int):
     session: Session = get_session()
@@ -47,31 +29,11 @@ def get_host(host_id: int):
         return host
 
 
-@router.put("/hosts/{host_id}", response_model=HostResponse)
-def update_host(host_id: int, payload: HostUpdate):
-    session: Session = get_session()
-    with session:
-        host = session.get(Host, host_id)
-        if not host:
-            raise HTTPException(status_code=404, detail="Host not found")
-        for key, value in payload.model_dump(exclude_unset=True).items():
-            setattr(host, key, value)
-        session.add(host)
-        session.commit()
-        session.refresh(host)
-        return host
-
-
-@router.delete("/hosts/{host_id}")
-def delete_host(host_id: int):
-    session: Session = get_session()
-    with session:
-        host = session.get(Host, host_id)
-        if not host:
-            raise HTTPException(status_code=404, detail="Host not found")
-        session.delete(host)
-        session.commit()
-        return {"status": "deleted"}
+@router.post("/hosts/refresh")
+def refresh_hosts():
+    """Re-scan ~/.ssh/config and import any new hosts."""
+    discovered, created = sync_known_hosts_to_db()
+    return {"discovered": discovered, "created": created}
 
 
 @router.post("/hosts/test-connection")
@@ -80,13 +42,23 @@ def test_connection(payload: HostConnectionTest):
     ssh_user = payload.ssh_user or settings.ssh_user
     port = payload.port
 
+    # Look up host-specific key from database
+    session: Session = get_session()
+    key_path = settings.ssh_key_path
+    with session:
+        host = session.exec(
+            select(Host).where(Host.hostname == hostname)
+        ).first()
+        if host and host.identity_file:
+            key_path = host.identity_file
+
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         client.connect(
             hostname=hostname,
             username=ssh_user,
-            key_filename=settings.ssh_key_path,
+            key_filename=key_path,
             port=port,
             timeout=10,
         )
