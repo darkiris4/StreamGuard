@@ -20,7 +20,7 @@ export default function ProfileEditor() {
         Profile Editor
       </Typography>
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <TextField
             label="Profile Name"
             fullWidth
@@ -28,7 +28,7 @@ export default function ProfileEditor() {
             onChange={(event) => setName(event.target.value)}
           />
         </Grid>
-        <Grid item xs={12} md={2}>
+        <Grid size={{ xs: 12, md: 2 }}>
           <TextField
             label="Distro"
             fullWidth
@@ -36,7 +36,7 @@ export default function ProfileEditor() {
             onChange={(event) => setDistro(event.target.value)}
           />
         </Grid>
-        <Grid item xs={12} md={5}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <TextField
             label="Description"
             fullWidth
@@ -44,7 +44,7 @@ export default function ProfileEditor() {
             onChange={(event) => setDescription(event.target.value)}
           />
         </Grid>
-        <Grid item xs={12} md={2}>
+        <Grid size={{ xs: 12, md: 2 }}>
           <Button variant="contained" onClick={handleSave}>
             Save
           </Button>

@@ -157,7 +157,7 @@ export default function Audit() {
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {/* Hosts — multi-select autocomplete */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
             multiple
             options={hostOptions}
@@ -183,7 +183,7 @@ export default function Audit() {
         </Grid>
 
         {/* Distro dropdown */}
-        <Grid item xs={12} md={2}>
+        <Grid size={{ xs: 12, md: 2 }}>
           <TextField
             select
             label="Distro"
@@ -203,7 +203,7 @@ export default function Audit() {
         </Grid>
 
         {/* Profile dropdown */}
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <TextField
             select
             label="Profile"
@@ -230,7 +230,7 @@ export default function Audit() {
         </Grid>
 
         {/* Profile path override */}
-        <Grid item xs={12} md={2}>
+        <Grid size={{ xs: 12, md: 2 }}>
           <TextField
             label="Path override"
             fullWidth
@@ -242,7 +242,7 @@ export default function Audit() {
           />
         </Grid>
 
-        <Grid item xs={12} md={1} display="flex" alignItems="center">
+        <Grid size={{ xs: 12, md: 1 }} sx={{ display: "flex", alignItems: "center" }}>
           <Button
             variant="contained"
             onClick={checkAndSubmit}

@@ -66,7 +66,7 @@ export default function Mitigate() {
       )}
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <TextField
             label="Hosts (comma-separated)"
             fullWidth
@@ -74,7 +74,7 @@ export default function Mitigate() {
             onChange={(event) => setHosts(event.target.value)}
           />
         </Grid>
-        <Grid item xs={12} md={2}>
+        <Grid size={{ xs: 12, md: 2 }}>
           <TextField
             label="Distro"
             fullWidth
@@ -82,7 +82,7 @@ export default function Mitigate() {
             onChange={(event) => setDistro(event.target.value)}
           />
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <TextField
             label="Profile Name"
             fullWidth
@@ -90,7 +90,7 @@ export default function Mitigate() {
             onChange={(event) => setProfileName(event.target.value)}
           />
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <TextField
             label="Playbook Path (optional)"
             fullWidth
@@ -99,7 +99,7 @@ export default function Mitigate() {
             helperText="Leave empty to auto-resolve from CAC cache"
           />
         </Grid>
-        <Grid item xs={12} md={1} display="flex" alignItems="center">
+        <Grid size={{ xs: 12, md: 1 }} sx={{ display: "flex", alignItems: "center" }}>
           <Button
             variant="contained"
             onClick={checkAndSubmit}
