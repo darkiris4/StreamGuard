@@ -4,7 +4,7 @@
 
 **StreamGuard** is an open-source web-based frontend for the ComplianceAsCode (CAC) GitHub project, designed as a free alternative to commercial tools like Tenable. It focuses on STIG (Security Technical Implementation Guide) compliance for Linux distributions, enabling users in DevSecOps and Cybersecurity to audit, mitigate, and harden systems efficiently. Key highlights include live fetching of CAC content, automated ISO building for hardened installs, multi-host scanning and remediation via Ansible, customizable reports with charts/graphs/tables, and support for custom STIG profiles.
 
-StreamGuard streamlines compliance workflows by treating security as a "stream" of continuous, automated processes—fetching rules live, scanning fleets in parallel, and applying fixes with minimal manual intervention. Built for simplicity, security, and scalability, it's ideal for enterprises, government agencies, or individual security practitioners handling DISA STIG requirements.
+StreamGuard streamlines compliance workflows by treating security as a "stream" of continuous, automated processes—browsing profiles live from GitHub, scanning fleets in parallel, and applying fixes with minimal manual intervention. Built for simplicity, security, and scalability, it's ideal for enterprises, government agencies, or individual security practitioners handling DISA STIG requirements.
 
 ## Table of Contents
 - [Features](#features)
@@ -38,7 +38,7 @@ StreamGuard streamlines compliance workflows by treating security as a "stream" 
 ## Features
 StreamGuard provides a comprehensive suite of tools for STIG compliance:
 
-- **Live CAC Integration**: Automatically fetches the latest STIG profiles and Ansible playbooks from ComplianceAsCode GitHub (no manual downloads required by default).
+- **Live CAC Integration**: Profiles are listed live from the ComplianceAsCode GitHub repo; artifacts (datastream XML/playbooks) are auto-downloaded on Run.
 - **Offline Mode**: Toggle to download and cache STIG rules/Ansible content locally for supported distros, ensuring availability without internet.
 - **Multi-Host Auditing**: Scan multiple hosts simultaneously using OpenSCAP against the latest or custom STIG profiles. Generates OSCAP XML artifacts plus user-friendly HTML reports with sorting, filtering, and export options (inspired by Ubuntu USG reports).
 - **Multi-Host Mitigation**: Automate remediation on fleets of hosts via Ansible playbooks fetched from CAC. Supports dry-run previews and real-time progress logging.
@@ -46,17 +46,13 @@ StreamGuard provides a comprehensive suite of tools for STIG compliance:
 - **Custom Profiles**: Edit CAC STIG rules (e.g., modify variables, exclude rules), create/save custom XCCDF profiles, and use them for audits/mitigations.
 - **DevSecOps Visualizations**: Interactive dashboard with compliance score gauges, severity pies/bars (CAT I/II/III), top failing rules tables with sparklines, timeline charts for compliance trends, and a host matrix view.
 - **Real-Time Feedback**: WebSocket-based streaming for scan/mitigation logs and progress bars.
-- **Security-Focused Access**: Host interactions via passwordless SSH keys only—no passwords stored or transmitted.
+- **Security-Focused Access**: Host interactions via passwordless SSH keys only—no passwords stored or transmitted. Hosts are discovered from `~/.ssh/config`.
 - **Export Options**: Reports downloadable as HTML, PDF, CSV, or JSON.
 
 ## Supported Distributions
-StreamGuard prioritizes well-supported CAC distributions for offline caching, ISO building, auditing, and mitigation:
-- RHEL (Red Hat Enterprise Linux) – Versions 7, 8, 9
-- Fedora – Latest stable
-- Ubuntu – LTS versions (e.g., 20.04, 22.04, 24.04)
-- Debian – Stable and testing
-
-Additional distros can be added via community contributions.
+In Online mode, StreamGuard lists all products currently supported by ComplianceAsCode.
+Offline mode works best with the core Linux distros (RHEL, Ubuntu, Debian, Fedora),
+but any CAC product can be fetched as long as the release ZIP contains its datastream.
 
 ## Architecture Overview
 StreamGuard follows a full-stack architecture:
@@ -136,9 +132,9 @@ streamguard/
 ### Quick Start with Docker
 1. Clone the repo: `git clone https://github.com/yourusername/streamguard.git && cd streamguard`
 2. Copy `.env.example` to `.env` and fill in vars (e.g., `DATABASE_URL_SYNC`).
-3. Mount your SSH key into the backend container (e.g., `~/.ssh/id_ed25519:/app/ssh/id_ed25519:ro`).
+3. Mount your SSH directory into the backend container (e.g., `~/.ssh:/app/ssh:ro`).
 4. Run: `docker-compose up -d` (migrations auto-apply on start).
-5. Access at `http://localhost:3000` (frontend) or `http://localhost:8000/docs` (API docs via Swagger).
+5. Access at `http://localhost:3000` (frontend), `http://localhost:8000/docs` (API docs via Swagger), and `http://localhost:3000/docs` (user guide).
 
 ### Docs
 Run the user guide locally:
@@ -166,15 +162,16 @@ Preview at `http://localhost:3000/docs`.
 Copy `.env.example` and customize:
 - `DATABASE_URL_SYNC=postgresql://user:pass@localhost/db` (or sqlite:///)
 - `DATABASE_URL=postgresql+asyncpg://user:pass@localhost/db` (future async usage)
-- `OFFLINE_MODE=false` (toggle to true for caching)
-- `SSH_KEY_PATH=/path/to/id_ed25519` (global key; per-user support planned)
+- `OFFLINE_MODE=false` (toggle to true for local git clone)
+- `GITHUB_TOKEN=` (optional; raises GitHub API limit to 5000/hr)
+- `SSH_KEY_PATH=/path/to/id_ed25519` (default key inside container; auto-detected if present)
 - `ANSIBLE_INVENTORY=/path/to/hosts.ini` (default dynamic)
 - `CORS_ORIGINS=http://localhost:5173,http://localhost:3000`
 
 ### SSH Key Setup for Hosts
 - Generate SSH key: `ssh-keygen -t ed25519`
 - Add public key to target hosts' `~/.ssh/authorized_keys`
-- Configure in app: Upload key via UI or set env path. All host access is passwordless—secure and simple.
+- Add hosts to `~/.ssh/config` on the StreamGuard server. The Hosts page is populated from this file.
 
 ### Offline Mode and CAC Caching
 - Toggle in dashboard or via API param.
@@ -191,9 +188,9 @@ Copy `.env.example` and customize:
 
 ### Auditing Hosts
 1. Go to Audit page.
-2. Input hosts (comma-separated IPs/hosts).
-3. Select profile (latest STIG or custom).
-4. Trigger: Runs parallel scans.
+2. Select hosts from the dropdown (loaded from `~/.ssh/config`).
+3. Select distro and profile (profiles are listed live from GitHub in Online mode).
+4. Trigger: Runs parallel scans (artifacts auto-download on Run if missing).
 5. View report: Sortable DataGrid (columns: Rule ID, Severity, Status, Description, Fix). Filter by CAT level. Export XML/HTML.
 
 ### Mitigating Hosts
@@ -223,17 +220,18 @@ Similar to audit:
 
 ## API Endpoints
 See `/docs` for Swagger UI. Key ones:
-- `GET /fetch_stig/{distro}`: Live/offline fetch.
-- `POST /audit`: {hosts: [], distro, profile} → results.
-- `POST /mitigate`: Similar, with dry_run.
-- `POST /build_iso/{distro}`: {base_iso_path or url}.
-- `CRUD /profiles`: List/edit/save customs.
+- `GET /api/cac/distros`: Live list of CAC products (Online mode).
+- `GET /api/cac/profiles/{distro}`: Live profile list (Online mode).
+- `POST /api/audit`: `{hosts: [], distro, profile_name, profile_path}` → results.
+- `POST /api/mitigate`: Similar, with `dry_run`.
+- `POST /api/build_iso/{distro}`: `{base_iso_path | base_iso_url}`.
 
 Example curl calls:
 ```
-curl -X GET "http://localhost:8000/api/fetch_stig/rhel?offline=true"
+curl -X GET "http://localhost:8000/api/cac/distros"
+curl -X GET "http://localhost:8000/api/cac/profiles/rhel9"
 curl -X POST "http://localhost:8000/api/audit" -H "Content-Type: application/json" \
-  -d '{"hosts":["localhost"],"distro":"rhel","profile_name":"stig","profile_path":"/path/to/xccdf.xml"}'
+  -d '{"hosts":["localhost"],"distro":"rhel9","profile_name":"xccdf_org.ssgproject.content_profile_stig","profile_path":""}'
 ```
 
 ## Security Considerations
