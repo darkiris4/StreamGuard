@@ -1,6 +1,6 @@
 # StreamGuard
 
-![StreamGuard Logo](assets/logo.jpg) <!-- Placeholder: Add a logo if created, e.g., via AI generator -->
+![StreamGuard Logo](assets/logo.webp) <!-- Placeholder: Add a logo if created, e.g., via AI generator -->
 
 **StreamGuard** is an open-source web-based frontend for the ComplianceAsCode (CAC) GitHub project, designed as a free alternative to commercial tools like Tenable. It focuses on STIG (Security Technical Implementation Guide) compliance for Linux distributions, enabling users in DevSecOps and Cybersecurity to audit, mitigate, and harden systems efficiently. Key highlights include live fetching of CAC content, automated ISO building for hardened installs, multi-host scanning and remediation via Ansible, customizable reports with charts/graphs/tables, and support for custom STIG profiles.
 

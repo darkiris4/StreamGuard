@@ -63,7 +63,7 @@ const config: Config = {
       title: 'StreamGuard Docs',
       logo: {
         alt: 'StreamGuard Logo',
-        src: '/static/logo.jpg',
+        src: '/static/logo.webp',
       },
     },
     colorMode: {
