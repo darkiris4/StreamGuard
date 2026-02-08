@@ -31,7 +31,7 @@ import CloudIcon from "@mui/icons-material/Cloud";
 import CloudOffIcon from "@mui/icons-material/CloudOff";
 
 import { setOfflineMode, getCacStatus } from "../api/endpoints";
-const logoUrl = "/assets/logo.jpg";
+const logoUrl = "/assets/logo.webp";
 
 const drawerWidth = 260;
 
