@@ -88,19 +88,19 @@ export default function Dashboard() {
         adding authentication.
       </Alert>
       <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <ComplianceGauge value={summary.fleet_score} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <SeverityPie data={severityData} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <TimelineChart data={timeline} />
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <TopFailsTable rows={topFails} />
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <HostMatrix rows={hostMatrixRows} />
         </Grid>
       </Grid>
