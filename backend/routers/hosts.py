@@ -28,6 +28,8 @@ def create_host(payload: HostCreate):
             ssh_user=payload.ssh_user,
             os_distro=payload.os_distro,
             os_version=payload.os_version,
+            ssh_key_path=payload.ssh_key_path,
+            source="manual",
         )
         session.add(host)
         session.commit()

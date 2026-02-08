@@ -9,6 +9,22 @@ export default defineConfig({
       allow: [".."],
     },
     proxy: {
+      "/api": {
+        target: "http://backend:8000",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/health": {
+        target: "http://backend:8000",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/ws": {
+        target: "ws://backend:8000",
+        ws: true,
+        changeOrigin: true,
+        secure: false,
+      },
       "/docs": {
         target: "http://docs:3001",
         changeOrigin: true,

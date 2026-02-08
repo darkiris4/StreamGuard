@@ -7,6 +7,8 @@ export default function useWebSocket(url: string) {
   const [messages, setMessages] = useState<Message[]>([]);
 
   useEffect(() => {
+    if (!url) return;
+
     const socket = new WebSocket(url);
     socketRef.current = socket;
 

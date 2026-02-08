@@ -22,7 +22,16 @@ class Settings(BaseSettings):
     def cors_allow_origins(self) -> List[str]:
         if self.cors_origins == "*":
             return ["*"]
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        origins = {origin.strip() for origin in self.cors_origins.split(",") if origin.strip()}
+        # Auto-expand localhost ↔ 127.0.0.1 so either access method works
+        expanded: set[str] = set()
+        for origin in origins:
+            expanded.add(origin)
+            if "://localhost" in origin:
+                expanded.add(origin.replace("://localhost", "://127.0.0.1"))
+            elif "://127.0.0.1" in origin:
+                expanded.add(origin.replace("://127.0.0.1", "://localhost"))
+        return sorted(expanded)
 
 
 settings = Settings()

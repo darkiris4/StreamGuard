@@ -6,6 +6,7 @@ from models.job import MitigationJob
 from schemas.job import JobHistoryItem
 
 from schemas.mitigate import MitigateRequest, MitigateResponse
+from services.cac_fetch import ensure_cac_content, resolve_content_paths
 from services.mitigate import run_mitigation
 
 
@@ -14,10 +15,23 @@ router = APIRouter(tags=["mitigate"])
 
 @router.post("/mitigate", response_model=MitigateResponse)
 async def mitigate_hosts(payload: MitigateRequest):
+    # Auto-resolve playbook_path from CAC cache when not provided
     if not payload.playbook_path:
-        raise HTTPException(
-            status_code=400, detail="playbook_path is required for mitigation"
-        )
+        _, pb_path = resolve_content_paths(payload.distro, payload.profile_name)
+        if not pb_path:
+            # Attempt to fetch content on demand
+            await ensure_cac_content(payload.distro)
+            _, pb_path = resolve_content_paths(payload.distro, payload.profile_name)
+        if pb_path:
+            payload.playbook_path = pb_path
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "No CAC playbook available for this distro/profile. "
+                    "Fetch content first via /api/cac/fetch/{distro}."
+                ),
+            )
     job_id, status = await run_mitigation(
         payload.hosts,
         payload.distro,

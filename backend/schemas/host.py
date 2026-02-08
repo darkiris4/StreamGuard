@@ -10,6 +10,7 @@ class HostCreate(BaseModel):
     ssh_user: str = "root"
     os_distro: str = ""
     os_version: str = ""
+    ssh_key_path: str = ""
 
 
 class HostUpdate(BaseModel):
@@ -18,6 +19,7 @@ class HostUpdate(BaseModel):
     ssh_user: Optional[str] = None
     os_distro: Optional[str] = None
     os_version: Optional[str] = None
+    ssh_key_path: Optional[str] = None
 
 
 class HostResponse(BaseModel):
@@ -27,6 +29,8 @@ class HostResponse(BaseModel):
     ssh_user: str
     os_distro: str
     os_version: str
+    ssh_key_path: str
+    source: str
     created_at: datetime
 
 

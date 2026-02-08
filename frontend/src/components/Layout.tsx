@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import {
   AppBar,
   Box,
+  Chip,
   CssBaseline,
   Divider,
   Drawer,
@@ -13,6 +14,7 @@ import {
   ListItemText,
   Switch,
   Toolbar,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -25,8 +27,10 @@ import BuildIcon from "@mui/icons-material/Build";
 import LibraryBooksIcon from "@mui/icons-material/LibraryBooks";
 import ImageIcon from "@mui/icons-material/Image";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import CloudIcon from "@mui/icons-material/Cloud";
+import CloudOffIcon from "@mui/icons-material/CloudOff";
 
-import client from "../api/client";
+import { setOfflineMode, getCacStatus } from "../api/endpoints";
 const logoUrl = "/assets/logo.jpg";
 
 const drawerWidth = 260;
@@ -46,19 +50,34 @@ export default function Layout() {
   const isLgUp = useMediaQuery(theme.breakpoints.up("lg"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [cacheVersion, setCacheVersion] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem("offlineMode");
-    setOffline(saved === "true");
+    if (saved === "true") setOffline(true);
+
+    // Fetch current CAC cache status on mount
+    getCacStatus()
+      .then((res) => {
+        setCacheVersion(res.data.cache_version || "");
+        // Sync mode with backend
+        if (res.data.mode === "offline" && saved !== "true") {
+          setOffline(true);
+          localStorage.setItem("offlineMode", "true");
+        }
+      })
+      .catch(() => {
+        // Backend may not be reachable yet
+      });
   }, []);
 
   const handleToggle = async (checked: boolean) => {
     setOffline(checked);
     localStorage.setItem("offlineMode", String(checked));
     try {
-      await client.post("/api/offline-mode", { offline: checked });
+      await setOfflineMode(checked);
     } catch {
-      // Future endpoint; ignore for now.
+      // Tolerate backend unavailability
     }
   };
 
@@ -119,13 +138,24 @@ export default function Layout() {
             </Typography>
           )}
           {isLgUp && <Box sx={{ flexGrow: 1 }} />}
-          <Typography variant="body2" sx={{ mr: 1 }}>
-            Offline
-          </Typography>
-          <Switch
-            checked={offline}
-            onChange={(event) => handleToggle(event.target.checked)}
-          />
+          {cacheVersion && (
+            <Chip
+              size="small"
+              label={`CAC ${cacheVersion}`}
+              sx={{ mr: 2, opacity: 0.8 }}
+            />
+          )}
+          <Tooltip title={offline ? "Offline mode — uses local git clone" : "Online mode — fetches from GitHub releases"}>
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <CloudIcon fontSize="small" sx={{ mr: 0.5, opacity: offline ? 0.3 : 1 }} />
+              <Switch
+                checked={offline}
+                onChange={(event) => handleToggle(event.target.checked)}
+                size="small"
+              />
+              <CloudOffIcon fontSize="small" sx={{ ml: 0.5, opacity: offline ? 1 : 0.3 }} />
+            </Box>
+          </Tooltip>
         </Toolbar>
       </AppBar>
       <Box

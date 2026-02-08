@@ -19,15 +19,15 @@ services:
       - DATABASE_URL_SYNC=postgresql://streamguard:streamguard@db:5432/streamguard
       - CAC_GITHUB_URL=https://github.com/ComplianceAsCode/content
       - OFFLINE_MODE=false
-      - SSH_KEY_PATH=/app/ssh/id_ed25519
+      - SSH_KEY_PATH=/app/ssh/id_ed25519_personal
       - SSH_USER=root
       - MAX_CONCURRENT_HOSTS=10
-      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+      - CORS_ORIGINS=*
     volumes:
       - ./backend/cac_cache:/app/backend/cac_cache
       - ./backend/ansible:/app/backend/ansible
       - ./isos:/app/isos
-      - ~/.ssh/id_ed25519:/app/ssh/id_ed25519:ro
+      - ~/.ssh:/app/ssh:ro
     ports:
       - "8000:8000"
     depends_on:
@@ -37,8 +37,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8000
     ports:
       - "3000:3000"
     depends_on:

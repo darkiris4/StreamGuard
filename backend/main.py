@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
 from db import init_db
+from services.ssh_discovery import sync_known_hosts_to_db
 from routers.audit import router as audit_router
 from routers.cac import router as cac_router
 from routers.dashboard import router as dashboard_router
@@ -41,9 +42,10 @@ def health_check():
 @app.on_event("startup")
 def on_startup():
     init_db()
+    sync_known_hosts_to_db()
 
 
-app.include_router(cac_router, prefix="/api")
+app.include_router(cac_router, prefix="/api/cac")
 app.include_router(audit_router, prefix="/api")
 app.include_router(mitigate_router, prefix="/api")
 app.include_router(profiles_router, prefix="/api")

@@ -1,31 +1,85 @@
 ---
+sidebar_position: 2
 title: Setup
 ---
 
 # Setup and Installation
 
 ## Prerequisites
-- Docker Engine + Docker Compose
-- SSH key for passwordless host access
-- Supported distros: **RHEL**, **Fedora**, **Ubuntu**, **Debian**
 
-## Docker Compose (Recommended)
-1. Copy `.env.example` to `.env` and update values.
-2. Mount your SSH key into the backend container (e.g. `~/.ssh/id_ed25519:/app/ssh/id_ed25519:ro`).
-3. Run:
+| Requirement | Notes |
+|---|---|
+| Docker Engine + Docker Compose | v2+ recommended |
+| SSH key pair | Ed25519 or RSA; must grant passwordless access to target hosts |
+| Target hosts | RHEL 7/8/9, Fedora, Ubuntu 20.04/22.04/24.04, or Debian 11/12 |
+
+## 1. Clone and Configure
+
+```bash
+git clone <repo-url> StreamGuard
+cd StreamGuard
+cp .env.example .env
+```
+
+Edit `.env` if you need to override defaults (database URL, SSH user, etc.). Most users can leave it as-is.
+
+## 2. SSH Key Setup
+
+StreamGuard mounts your entire `~/.ssh/` directory (read-only) into the backend container. On startup it parses `known_hosts` to auto-discover targets.
+
+**Ensure your key works** from the StreamGuard server to every target:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 root@target-host "hostname"
+```
+
+If that succeeds, StreamGuard can reach the host. No additional SSH configuration inside the container is needed.
+
+## 3. Start the Stack
 
 ```bash
 docker compose up -d
 ```
 
-The backend will auto-apply migrations on startup.
+This brings up four services:
 
-## Required Environment Variables
-- `DATABASE_URL_SYNC`: sync SQLAlchemy connection string.
-- `SSH_KEY_PATH`: absolute path to the SSH key inside the container.
-- `SSH_USER`: default SSH user for host operations.
-- `OFFLINE_MODE`: `true` to cache CAC content locally.
+| Service | Port | Purpose |
+|---|---|---|
+| **frontend** | 3000 | Web UI (Vite dev server, proxies API calls to backend) |
+| **backend** | 8000 | FastAPI — audit, mitigate, CAC fetch, host management |
+| **db** | 5432 | PostgreSQL for scan results, jobs, hosts, profiles |
+| **docs** | 3001 | Docusaurus user guide |
 
-## Validate Installation
-- API: `http://localhost:8000/docs`
-- UI: `http://localhost:3000`
+The backend automatically runs Alembic migrations on startup.
+
+## 4. Validate
+
+- **UI:** `http://<server-ip>:3000`
+- **API docs:** `http://<server-ip>:8000/docs`
+- **Health check:** `curl http://<server-ip>:8000/health`
+
+The UI is accessible from any machine on the network — use the server's LAN IP, not `localhost`.
+
+## Environment Variables
+
+These are set in `docker-compose.yml` under the `backend` service:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL connection | Async SQLAlchemy URL |
+| `DATABASE_URL_SYNC` | PostgreSQL connection | Sync SQLAlchemy URL |
+| `CAC_GITHUB_URL` | `https://github.com/ComplianceAsCode/content` | CAC repo URL |
+| `OFFLINE_MODE` | `false` | Set `true` to use local git clone instead of GitHub releases |
+| `SSH_KEY_PATH` | `/app/ssh/id_ed25519` | Path to default SSH key inside the container |
+| `SSH_USER` | `root` | Default SSH user for host operations |
+| `MAX_CONCURRENT_HOSTS` | `10` | Parallel scan/remediation limit |
+| `CORS_ORIGINS` | `*` | Allowed origins (leave `*` for internal tools) |
+
+## Updating
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+The backend will apply any new database migrations automatically.

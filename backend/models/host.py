@@ -11,4 +11,6 @@ class Host(SQLModel, table=True):
     ssh_user: str = "root"
     os_distro: str = ""
     os_version: str = ""
+    ssh_key_path: str = ""  # per-host key override; empty = use global default
+    source: str = "manual"  # "manual" | "known_hosts"
     created_at: datetime = Field(default_factory=datetime.utcnow)

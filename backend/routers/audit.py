@@ -12,6 +12,7 @@ from schemas.job import JobHistoryItem
 
 from schemas.audit import AuditRequest, AuditResponse
 from services.audit import run_audit
+from services.cac_fetch import ensure_cac_content, resolve_content_paths
 
 
 router = APIRouter(tags=["audit"])
@@ -19,10 +20,23 @@ router = APIRouter(tags=["audit"])
 
 @router.post("/audit", response_model=AuditResponse)
 async def audit_hosts(payload: AuditRequest):
+    # Auto-resolve profile_path from CAC cache when not provided
     if not payload.profile_path:
-        raise HTTPException(
-            status_code=400, detail="profile_path is required for audit"
-        )
+        ds_path, _ = resolve_content_paths(payload.distro, payload.profile_name)
+        if not ds_path:
+            # Attempt to fetch content on demand
+            await ensure_cac_content(payload.distro)
+            ds_path, _ = resolve_content_paths(payload.distro, payload.profile_name)
+        if ds_path:
+            payload.profile_path = ds_path
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "No CAC content available for this distro. "
+                    "Fetch content first via /api/cac/fetch/{distro}."
+                ),
+            )
     job_id, results = await run_audit(
         payload.hosts, payload.distro, payload.profile_name, payload.profile_path
     )
