@@ -41,7 +41,7 @@ export default function IsoBuilder() {
         ISO Builder
       </Typography>
       <Grid container spacing={2}>
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <TextField
             label="Distro"
             fullWidth
@@ -49,7 +49,7 @@ export default function IsoBuilder() {
             onChange={(event) => setDistro(event.target.value)}
           />
         </Grid>
-        <Grid item xs={12} md={5}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <TextField
             label="Base ISO URL"
             fullWidth
@@ -57,7 +57,7 @@ export default function IsoBuilder() {
             onChange={(event) => setBaseIsoUrl(event.target.value)}
           />
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Button variant="outlined" component="label">
             Upload ISO
             <input
@@ -69,7 +69,7 @@ export default function IsoBuilder() {
             />
           </Button>
         </Grid>
-        <Grid item xs={12} md={1}>
+        <Grid size={{ xs: 12, md: 1 }}>
           <Button variant="contained" onClick={handleSubmit}>
             Build
           </Button>
