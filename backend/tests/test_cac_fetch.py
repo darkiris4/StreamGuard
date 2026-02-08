@@ -106,6 +106,10 @@ class TestOnlineMode:
         monkeypatch.setattr(cac_fetch, "CAC_CACHE_DIR", tmp_path)
         monkeypatch.setattr(cac_fetch, "METADATA_PATH", tmp_path / "metadata.json")
         monkeypatch.setattr("services.cac_fetch.settings.cac_release_version", "latest")
+        # Bypass live GitHub product lookup so fake_get only handles releases + ZIP
+        monkeypatch.setattr(
+            cac_fetch, "get_supported_products", lambda: set(cac_fetch.SUPPORTED_PRODUCTS)
+        )
 
         zip_bytes = _make_release_zip("0.1.73")
         call_count = {"n": 0}
@@ -265,6 +269,13 @@ class TestResolveContentPaths:
 
 
 class TestDistroValidation:
+    @pytest.fixture(autouse=True)
+    def use_static_products(self, monkeypatch):
+        """Use the static SUPPORTED_PRODUCTS set instead of hitting the live GitHub API."""
+        monkeypatch.setattr(
+            cac_fetch, "get_supported_products", lambda: set(cac_fetch.SUPPORTED_PRODUCTS)
+        )
+
     def test_single_product(self):
         assert cac_fetch._products_for_distro("rhel9") == ["rhel9"]
 
