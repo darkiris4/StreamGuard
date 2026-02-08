@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from core.config import settings
 from db import get_session
 from models.host import Host
-from schemas.host import HostConnectionTest, HostResponse
+from schemas.host import HostConnectionTest, HostCreate, HostResponse, HostUpdate
 from services.ssh_discovery import sync_known_hosts_to_db
 
 
@@ -27,6 +27,44 @@ def get_host(host_id: int):
         if not host:
             raise HTTPException(status_code=404, detail="Host not found")
         return host
+
+
+@router.post("/hosts", response_model=HostResponse)
+def create_host(payload: HostCreate):
+    session: Session = get_session()
+    with session:
+        host = Host(**payload.model_dump())
+        session.add(host)
+        session.commit()
+        session.refresh(host)
+        return host
+
+
+@router.put("/hosts/{host_id}", response_model=HostResponse)
+def update_host(host_id: int, payload: HostUpdate):
+    session: Session = get_session()
+    with session:
+        host = session.get(Host, host_id)
+        if not host:
+            raise HTTPException(status_code=404, detail="Host not found")
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(host, field, value)
+        session.add(host)
+        session.commit()
+        session.refresh(host)
+        return host
+
+
+@router.delete("/hosts/{host_id}")
+def delete_host(host_id: int):
+    session: Session = get_session()
+    with session:
+        host = session.get(Host, host_id)
+        if not host:
+            raise HTTPException(status_code=404, detail="Host not found")
+        session.delete(host)
+        session.commit()
+        return {"ok": True}
 
 
 @router.post("/hosts/refresh")
