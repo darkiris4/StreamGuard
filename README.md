@@ -115,7 +115,7 @@ streamguard/
 ├── requirements.txt        # Backend deps
 ├── package.json            # Root if needed (monorepo tools)
 ├── README.md               # This file
-├── LICENSE                 # MIT or your choice
+├── LICENSE                 # GPL-3.0
 └── .gitignore              # Ignore node_modules, cac_cache, etc.
 ```
 
@@ -130,7 +130,7 @@ streamguard/
 - SSH keys for target hosts (see Configuration)
 
 ### Quick Start with Docker
-1. Clone the repo: `git clone https://github.com/yourusername/streamguard.git && cd streamguard`
+1. Clone the repo: `git clone https://github.com/darkiris4/StreamGuard.git && cd StreamGuard`
 2. Copy `.env.example` to `.env` and fill in vars (e.g., `DATABASE_URL_SYNC`).
 3. Mount your SSH directory into the backend container (e.g., `~/.ssh:/app/ssh:ro`).
 4. Run: `docker-compose up -d` (migrations auto-apply on start).
@@ -262,7 +262,7 @@ We welcome contributions! Fork, create branch, PR.
 - Future: Windows support, integration with Ansible Tower/AWX, mobile-responsive UI.
 
 ## License
-MIT License. See [LICENSE](LICENSE) for details.
+GPL-3.0 License. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 - Built with inspiration from ComplianceAsCode, OpenSCAP, and Ansible communities.
