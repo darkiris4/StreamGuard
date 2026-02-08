@@ -26,7 +26,7 @@ jobs:
 
       - name: Lint (ruff)
         run: |
-          ruff check backend --select F,E9 --ignore F401
+          ruff check backend --fix --exit-non-zero-on-fix --select F,E9 --ignore F401
 
       - name: Run tests
         run: |
