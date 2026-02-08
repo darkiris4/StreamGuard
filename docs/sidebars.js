@@ -1,6 +1,6 @@
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 module.exports = {
-  userGuide: [
+  tutorialSidebar: [
     {
       type: "category",
       label: "User Guide",
@@ -16,6 +16,7 @@ module.exports = {
         "best-practices",
         "troubleshooting",
         "glossary",
+        "api",
       ],
     },
   ],
