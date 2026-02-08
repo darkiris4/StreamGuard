@@ -4,12 +4,14 @@ import io
 import json
 import logging
 import re
+import time
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import requests
+import yaml
 from lxml import etree
 
 from core.config import settings
@@ -57,6 +59,181 @@ GITHUB_RAW_BASE = (
 )
 
 _REQUEST_TIMEOUT = 60
+_PROFILE_CACHE_TTL_SECONDS = 600
+_PRODUCTS_CACHE_TTL_SECONDS = 600
+
+# Emergency fallback profiles used only when GitHub and cache are unavailable.
+_EMERGENCY_PROFILES: Dict[str, List[CACProfileInfo]] = {
+    "rhel": [
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_stig", title="stig"),
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_cis", title="cis"),
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_ospp", title="ospp"),
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_pci-dss", title="pci-dss"),
+    ],
+    "fedora": [
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_standard", title="standard"),
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_ospp", title="ospp"),
+    ],
+    "ubuntu": [
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_stig", title="stig"),
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_standard", title="standard"),
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_cis_level1_server", title="cis_level1_server"),
+    ],
+    "debian": [
+        CACProfileInfo(id="xccdf_org.ssgproject.content_profile_standard", title="standard"),
+    ],
+}
+
+# In-memory cache: product -> (epoch_seconds, profiles)
+_profile_cache: Dict[str, Tuple[float, List[CACProfileInfo]]] = {}
+_products_cache: Tuple[float, List[str]] | None = None
+
+
+def _cached_profiles(product: str) -> List[CACProfileInfo]:
+    cached = _profile_cache.get(product)
+    if cached and time.time() - cached[0] < _PROFILE_CACHE_TTL_SECONDS:
+        return list(cached[1])
+    return []
+
+
+def _emergency_profiles_for(distro: str) -> List[CACProfileInfo]:
+    """Return minimal emergency profiles for a distro family."""
+    for family, products in DISTRO_FAMILY_MAP.items():
+        if distro in products or distro == family:
+            return list(_EMERGENCY_PROFILES.get(family, []))
+    return []
+
+
+def _github_api_headers() -> dict:
+    headers = {"Accept": "application/vnd.github+json"}
+    if settings.github_token:
+        headers["Authorization"] = f"token {settings.github_token}"
+    return headers
+
+
+def _fetch_products_from_github() -> List[str]:
+    """Fetch product directory names from the ComplianceAsCode repo."""
+    global _products_cache
+    now = time.time()
+    if _products_cache and now - _products_cache[0] < _PRODUCTS_CACHE_TTL_SECONDS:
+        return list(_products_cache[1])
+
+    url = "https://api.github.com/repos/ComplianceAsCode/content/contents/products"
+    try:
+        resp = requests.get(url, headers=_github_api_headers(), timeout=_REQUEST_TIMEOUT)
+        if resp.status_code in (403, 429):
+            logger.warning("GitHub API rate limit hit for %s", url)
+            return []
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("GitHub API request failed for %s: %s", url, exc)
+        return []
+
+    products: List[str] = []
+    for entry in resp.json():
+        if entry.get("type") == "dir" and entry.get("name"):
+            products.append(entry["name"])
+
+    _products_cache = (now, products)
+    return list(products)
+
+
+def get_supported_products() -> set[str]:
+    """Return supported product identifiers, preferring live GitHub list."""
+    if not settings.offline_mode:
+        live = _fetch_products_from_github()
+        if live:
+            return set(live)
+    return set(SUPPORTED_PRODUCTS)
+
+
+def _profile_id_from_filename(filename: str) -> str:
+    stem = filename.rsplit(".", 1)[0]
+    return f"xccdf_org.ssgproject.content_profile_{stem}"
+
+
+def _title_from_filename(filename: str) -> str:
+    stem = filename.rsplit(".", 1)[0]
+    return stem.replace("_", " ")
+
+
+def _fetch_profiles_from_github(product: str) -> List[CACProfileInfo]:
+    """Fetch profile metadata from the ComplianceAsCode GitHub repo."""
+    cached = _cached_profiles(product)
+    if cached:
+        return cached
+    now = time.time()
+
+    url = (
+        "https://api.github.com/repos/ComplianceAsCode/content/contents/"
+        f"products/{product}/profiles"
+    )
+    try:
+        resp = requests.get(url, headers=_github_api_headers(), timeout=_REQUEST_TIMEOUT)
+        if resp.status_code in (403, 429):
+            logger.warning("GitHub API rate limit hit for %s", url)
+            return []
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("GitHub API request failed for %s: %s", url, exc)
+        return []
+
+    profiles: List[CACProfileInfo] = []
+    for entry in resp.json():
+        name = entry.get("name", "")
+        if not name.endswith(".profile"):
+            continue
+        download_url = entry.get("download_url")
+        if not download_url:
+            continue
+        title = ""
+        try:
+            raw_resp = requests.get(download_url, timeout=_REQUEST_TIMEOUT)
+            raw_resp.raise_for_status()
+            parsed = yaml.safe_load(raw_resp.text) or {}
+            if isinstance(parsed, dict):
+                title = str(parsed.get("title", "")).strip()
+        except requests.RequestException as exc:
+            logger.warning("Profile fetch failed for %s: %s", download_url, exc)
+        except yaml.YAMLError as exc:
+            logger.warning("Profile YAML parse failed for %s: %s", download_url, exc)
+
+        if not title:
+            title = _title_from_filename(name)
+        profiles.append(CACProfileInfo(id=_profile_id_from_filename(name), title=title))
+
+    _profile_cache[product] = (now, profiles)
+    return list(profiles)
+
+
+def _fetch_profiles_from_repo(product: str) -> List[CACProfileInfo]:
+    """Fetch profile metadata from a locally cloned repo (offline mode)."""
+    cached = _cached_profiles(product)
+    if cached:
+        return cached
+
+    profiles_dir = REPO_DIR / "products" / product / "profiles"
+    if not profiles_dir.exists():
+        return []
+
+    profiles: List[CACProfileInfo] = []
+    for path in sorted(profiles_dir.glob("*.profile")):
+        title = ""
+        try:
+            parsed = yaml.safe_load(path.read_text()) or {}
+            if isinstance(parsed, dict):
+                title = str(parsed.get("title", "")).strip()
+        except (OSError, yaml.YAMLError) as exc:
+            logger.warning("Profile YAML parse failed for %s: %s", path, exc)
+
+        if not title:
+            title = _title_from_filename(path.name)
+        profiles.append(
+            CACProfileInfo(id=_profile_id_from_filename(path.name), title=title)
+        )
+
+    _profile_cache[product] = (time.time(), profiles)
+    return list(profiles)
 
 # ---------------------------------------------------------------------------
 # Metadata helpers
@@ -81,13 +258,14 @@ def _write_metadata(data: dict) -> None:
 
 def _products_for_distro(distro: str) -> List[str]:
     """Resolve a distro argument to a list of product identifiers."""
-    if distro in SUPPORTED_PRODUCTS:
+    supported = get_supported_products()
+    if distro in supported:
         return [distro]
     if distro in DISTRO_FAMILY_MAP:
-        return DISTRO_FAMILY_MAP[distro]
+        return [p for p in DISTRO_FAMILY_MAP[distro] if p in supported]
     raise ValueError(
         f"Unsupported distro: {distro}. "
-        f"Supported: {sorted(SUPPORTED_PRODUCTS | set(DISTRO_FAMILY_MAP.keys()))}"
+        f"Supported: {sorted(supported | set(DISTRO_FAMILY_MAP.keys()))}"
     )
 
 
@@ -411,7 +589,7 @@ def get_cache_status() -> dict:
     return result
 
 
-def parse_profiles_from_datastream(distro: str) -> List[CACProfileInfo]:
+def _parse_profiles_from_datastream(distro: str) -> List[CACProfileInfo]:
     """Parse XCCDF/datastream XML to extract Profile ids and titles."""
     meta = _read_metadata()
     products = _products_for_distro(distro)
@@ -437,6 +615,35 @@ def parse_profiles_from_datastream(distro: str) -> List[CACProfileInfo]:
             logger.warning("Failed to parse datastream %s: %s", ds_path, exc)
 
     return profiles
+
+
+def get_profiles_for_distro(distro: str) -> List[CACProfileInfo]:
+    """Resolve profile list with live GitHub fetch + fallback chain."""
+    products = _products_for_distro(distro)
+
+    # Tier 1: Online mode, live GitHub API fetch
+    if not settings.offline_mode:
+        github_profiles: List[CACProfileInfo] = []
+        for product in products:
+            github_profiles.extend(_fetch_profiles_from_github(product))
+        if github_profiles:
+            return github_profiles
+
+    # Tier 2: Offline repo profiles (when in offline mode)
+    if settings.offline_mode:
+        repo_profiles: List[CACProfileInfo] = []
+        for product in products:
+            repo_profiles.extend(_fetch_profiles_from_repo(product))
+        if repo_profiles:
+            return repo_profiles
+
+    # Tier 3: Cached datastream XML
+    cached_profiles = _parse_profiles_from_datastream(distro)
+    if cached_profiles:
+        return cached_profiles
+
+    # Tier 4: Emergency fallback list
+    return _emergency_profiles_for(distro)
 
 
 def resolve_content_paths(distro: str, profile_name: str) -> Tuple[str, str]:

@@ -10,6 +10,8 @@ export const getCacStatus = () => client.get("/api/cac/status");
 export const getCacProfiles = (distro: string) =>
   client.get(`/api/cac/profiles/${distro}`);
 
+export const getCacDistros = () => client.get("/api/cac/distros");
+
 export const setOfflineMode = (offline: boolean) =>
   client.post("/api/cac/offline-mode", { offline });
 

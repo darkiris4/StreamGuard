@@ -12,13 +12,15 @@ from schemas.cac import (
 )
 from services.cac_fetch import (
     CAC_CACHE_DIR,
+    DISTRO_FAMILY_MAP,
     RELEASES_DIR,
     REPO_DIR,
     _products_for_distro,
     _read_metadata,
     ensure_cac_content,
+    get_profiles_for_distro,
     get_cache_status,
-    parse_profiles_from_datastream,
+    get_supported_products,
 )
 
 router = APIRouter(tags=["cac"])
@@ -31,6 +33,16 @@ class OfflineModeUpdate(BaseModel):
 # -----------------------------------------------------------------------
 # New endpoints — mounted under /api/cac via main.py prefix
 # -----------------------------------------------------------------------
+
+
+@router.get("/distros")
+def cac_distros():
+    """Return all supported distro identifiers (for dropdown population)."""
+    supported = get_supported_products()
+    return {
+        "distros": sorted(supported),
+        "families": {},
+    }
 
 
 @router.get("/fetch/{distro}", response_model=CACFetchResponse)
@@ -76,7 +88,7 @@ def cac_status():
 def cac_profiles(distro: str):
     """List available STIG profiles parsed from cached datastream XML."""
     try:
-        profiles = parse_profiles_from_datastream(distro)
+        profiles = get_profiles_for_distro(distro)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return CACProfilesResponse(distro=distro, profiles=profiles)

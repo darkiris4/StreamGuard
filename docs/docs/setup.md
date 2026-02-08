@@ -25,7 +25,8 @@ Edit `.env` if you need to override defaults (database URL, SSH user, etc.). Mos
 
 ## 2. SSH Key Setup
 
-StreamGuard mounts your entire `~/.ssh/` directory (read-only) into the backend container. On startup it parses `known_hosts` to auto-discover targets.
+StreamGuard mounts your entire `~/.ssh/` directory (read-only) into the backend
+container. On startup it parses `~/.ssh/config` to auto-discover targets.
 
 **Ensure your key works** from the StreamGuard server to every target:
 
@@ -33,7 +34,17 @@ StreamGuard mounts your entire `~/.ssh/` directory (read-only) into the backend 
 ssh -i ~/.ssh/id_ed25519 root@target-host "hostname"
 ```
 
-If that succeeds, StreamGuard can reach the host. No additional SSH configuration inside the container is needed.
+If that succeeds, StreamGuard can reach the host. No additional SSH
+configuration inside the container is needed.
+
+Hosts displayed in the UI map directly to `~/.ssh/config` fields:
+
+- **Host** -> `Host`
+- **HostName** -> `HostName`
+- **User** -> `User`
+- **Port** -> `Port`
+- **IdentityFile** -> `IdentityFile`
+- **ProxyJump** -> `ProxyJump`
 
 ## 3. Start the Stack
 
@@ -70,7 +81,8 @@ These are set in `docker-compose.yml` under the `backend` service:
 | `DATABASE_URL_SYNC` | PostgreSQL connection | Sync SQLAlchemy URL |
 | `CAC_GITHUB_URL` | `https://github.com/ComplianceAsCode/content` | CAC repo URL |
 | `OFFLINE_MODE` | `false` | Set `true` to use local git clone instead of GitHub releases |
-| `SSH_KEY_PATH` | `/app/ssh/id_ed25519` | Path to default SSH key inside the container |
+| `SSH_KEY_PATH` | `/app/ssh/id_ed25519` | Default SSH key inside the container (auto-detected if present) |
+| `GITHUB_TOKEN` | *(empty)* | Optional GitHub PAT for higher API rate limits (5000/hr) |
 | `SSH_USER` | `root` | Default SSH user for host operations |
 | `MAX_CONCURRENT_HOSTS` | `10` | Parallel scan/remediation limit |
 | `CORS_ORIGINS` | `*` | Allowed origins (leave `*` for internal tools) |

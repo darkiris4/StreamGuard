@@ -11,7 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 
-import { runMitigate, getCacStatus, fetchCacContent } from "../api/endpoints";
+import { runMitigate } from "../api/endpoints";
 import useWebSocket from "../hooks/useWebSocket";
 
 export default function Mitigate() {
@@ -21,9 +21,7 @@ export default function Mitigate() {
   const [playbookPath, setPlaybookPath] = useState("");
   const [jobId, setJobId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState("");
-  const [cacMissing, setCacMissing] = useState(false);
 
   const wsUrl = jobId
     ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/mitigate/${jobId}`
@@ -32,45 +30,7 @@ export default function Mitigate() {
 
   const checkAndSubmit = async () => {
     setError("");
-    setCacMissing(false);
-
-    // If playbook_path is manually provided, skip the CAC check
-    if (playbookPath) {
-      return handleSubmit();
-    }
-
-    // Check whether cached content is available for this distro
-    try {
-      const statusRes = await getCacStatus();
-      const available: string[] = statusRes.data.available_distros || [];
-      const profiles: Record<string, string[]> = statusRes.data.profiles || {};
-      const hasPlaybook = available.some((d: string) => {
-        const match = distro.startsWith(d) || d.startsWith(distro) || d === distro;
-        return match && profiles[d]?.includes(profileName);
-      });
-      if (!hasPlaybook) {
-        setCacMissing(true);
-        return;
-      }
-    } catch {
-      // Backend unreachable — let the mitigate endpoint handle it
-    }
     return handleSubmit();
-  };
-
-  const handleFetchContent = async () => {
-    setFetching(true);
-    setError("");
-    try {
-      await fetchCacContent(distro);
-      setCacMissing(false);
-      await handleSubmit();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to fetch CAC content: ${msg}`);
-    } finally {
-      setFetching(false);
-    }
   };
 
   const handleSubmit = async () => {
@@ -98,27 +58,6 @@ export default function Mitigate() {
       <Typography variant="h4" gutterBottom>
         Mitigate Hosts
       </Typography>
-
-      {cacMissing && (
-        <Alert
-          severity="warning"
-          sx={{ mb: 2 }}
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={handleFetchContent}
-              disabled={fetching}
-              startIcon={fetching ? <CircularProgress size={16} /> : undefined}
-            >
-              {fetching ? "Fetching…" : "Fetch Now"}
-            </Button>
-          }
-        >
-          No cached CAC playbook found for <strong>{distro}</strong> / <strong>{profileName}</strong>.
-          Fetch content from ComplianceAsCode first.
-        </Alert>
-      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>

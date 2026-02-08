@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     cac_github_url: str = "https://github.com/ComplianceAsCode/content"
     cac_release_version: str = "latest"
     offline_mode: bool = False
+    github_token: str = ""
     ssh_key_path: str = ""
     ssh_user: str = "root"
     max_concurrent_hosts: int = 10

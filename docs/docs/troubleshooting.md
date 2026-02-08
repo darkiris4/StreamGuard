@@ -7,7 +7,10 @@ title: Troubleshooting
 ## CAC Content Fetch Fails
 
 - **Check network access** — the backend container needs outbound HTTPS to `github.com` and `api.github.com`.
-- **GitHub rate limiting** — unauthenticated API requests are limited to 60/hour. If you hit this, wait or switch to Offline mode.
+- **GitHub rate limiting** — unauthenticated API requests are limited to 60/hour.
+  Set `GITHUB_TOKEN` in `docker-compose.yml` for 5000/hour, or switch to Offline mode.
+- **Profile listing vs artifacts** — profile dropdowns are fetched live from GitHub.
+  Artifacts (datastream XML, playbooks) are downloaded only when you run an audit/mitigate.
 - **Offline mode** — toggle the switch in the toolbar or set `OFFLINE_MODE=true` in `docker-compose.yml`. This clones the full repo instead of using the API.
 - **Cache fallback** — if a fetch fails, StreamGuard automatically uses whatever is already cached. If the cache is empty, you'll see an error.
 - **Check logs** — `docker compose logs backend --tail=50` will show the actual error from the fetch attempt.
@@ -16,7 +19,8 @@ title: Troubleshooting
 
 - **Key not mounted** — ensure `docker-compose.yml` mounts `~/.ssh:/app/ssh:ro`. Check with `docker compose exec backend ls -la /app/ssh/`.
 - **Wrong key permissions** — SSH keys must be readable. Inside the container they're mounted read-only, which is correct.
-- **Host not in known_hosts** — StreamGuard auto-loads hosts from `known_hosts`. If a host isn't there, SSH to it manually first from the server: `ssh root@target-host`.
+- **Host not in SSH config** — StreamGuard auto-loads hosts from `~/.ssh/config`.
+  If a host isn't there, add it and click **Re-scan SSH Config** in the UI.
 - **Test from the container** — `docker compose exec backend ssh -i /app/ssh/id_ed25519 root@target-host hostname`.
 - **Paramiko errors** — the "Test" button on the Hosts page uses paramiko. If it fails but manual SSH works, check that the key type is supported (Ed25519, RSA).
 

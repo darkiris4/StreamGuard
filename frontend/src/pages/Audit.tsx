@@ -1,17 +1,36 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Grid,
+  MenuItem,
   TextField,
   Typography,
 } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
 
-import { runAudit, getCacStatus, fetchCacContent } from "../api/endpoints";
+import {
+  runAudit,
+  getCacDistros,
+  getCacProfiles,
+  listHosts,
+} from "../api/endpoints";
 import ReportDataGrid from "../components/ReportDataGrid";
+
+interface HostOption {
+  id: number;
+  alias: string;
+  hostname: string;
+}
+
+interface ProfileOption {
+  id: string;
+  title: string;
+}
 
 const columns: GridColDef[] = [
   { field: "rule_id", headerName: "Rule ID", flex: 1 },
@@ -21,53 +40,66 @@ const columns: GridColDef[] = [
 ];
 
 export default function Audit() {
-  const [hosts, setHosts] = useState("localhost");
-  const [distro, setDistro] = useState("rhel9");
-  const [profileName, setProfileName] = useState("stig");
+  // --- data sources ---
+  const [hostOptions, setHostOptions] = useState<HostOption[]>([]);
+  const [distroOptions, setDistroOptions] = useState<string[]>([]);
+  const [profileOptions, setProfileOptions] = useState<ProfileOption[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(false);
+
+  // --- form state ---
+  const [selectedHosts, setSelectedHosts] = useState<HostOption[]>([]);
+  const [distro, setDistro] = useState("");
+  const [profileName, setProfileName] = useState("");
   const [profilePath, setProfilePath] = useState("");
+
+  // --- results ---
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState("");
-  const [cacMissing, setCacMissing] = useState(false);
+
+  // Load host list + distro list on mount
+  useEffect(() => {
+    listHosts().then((res) => setHostOptions(res.data));
+    getCacDistros().then((res) => setDistroOptions(res.data.distros));
+  }, []);
+
+  // When distro changes, load available profiles
+  useEffect(() => {
+    if (!distro) {
+      setProfileOptions([]);
+      setProfileName("");
+      return;
+    }
+    setProfilesLoading(true);
+    getCacProfiles(distro)
+      .then((res) => {
+        const profiles: ProfileOption[] = res.data.profiles || [];
+        setProfileOptions(profiles);
+        // Auto-select first profile if available
+        if (profiles.length > 0 && !profileName) {
+          setProfileName(profiles[0].id);
+        }
+      })
+      .catch(() => {
+        setProfileOptions([]);
+      })
+      .finally(() => setProfilesLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [distro]);
 
   const checkAndSubmit = async () => {
     setError("");
-    setCacMissing(false);
 
-    // If profile_path is manually provided, skip the CAC check
-    if (profilePath) {
-      return handleSubmit();
+    if (!selectedHosts.length) {
+      setError("Select at least one host.");
+      return;
+    }
+    if (!distro) {
+      setError("Select a distro.");
+      return;
     }
 
-    // Check whether cached content is available for this distro
-    try {
-      const statusRes = await getCacStatus();
-      const available: string[] = statusRes.data.available_distros || [];
-      if (!available.includes(distro) && !available.some((d: string) => distro.startsWith(d) || d.startsWith(distro))) {
-        setCacMissing(true);
-        return;
-      }
-    } catch {
-      // Backend unreachable — let the audit endpoint handle it
-    }
     return handleSubmit();
-  };
-
-  const handleFetchContent = async () => {
-    setFetching(true);
-    setError("");
-    try {
-      await fetchCacContent(distro);
-      setCacMissing(false);
-      // Content fetched — now run the audit
-      await handleSubmit();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to fetch CAC content: ${msg}`);
-    } finally {
-      setFetching(false);
-    }
   };
 
   const handleSubmit = async () => {
@@ -75,7 +107,7 @@ export default function Audit() {
     setError("");
     try {
       const response = await runAudit({
-        hosts: hosts.split(",").map((host) => host.trim()),
+        hosts: selectedHosts.map((h) => h.hostname),
         distro,
         profile_name: profileName,
         profile_path: profilePath,
@@ -104,32 +136,18 @@ export default function Audit() {
     }
   };
 
+  /** Extract a short display label from a long XCCDF profile id */
+  const shortProfileLabel = (id: string) => {
+    // e.g. "xccdf_org.ssgproject.content_profile_stig" → "stig"
+    const parts = id.split("_");
+    return parts[parts.length - 1] || id;
+  };
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
         Audit Hosts
       </Typography>
-
-      {cacMissing && (
-        <Alert
-          severity="warning"
-          sx={{ mb: 2 }}
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={handleFetchContent}
-              disabled={fetching}
-              startIcon={fetching ? <CircularProgress size={16} /> : undefined}
-            >
-              {fetching ? "Fetching…" : "Fetch Now"}
-            </Button>
-          }
-        >
-          No cached CAC content found for <strong>{distro}</strong>. Fetch
-          content from ComplianceAsCode first.
-        </Alert>
-      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -138,50 +156,106 @@ export default function Audit() {
       )}
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Hosts (comma-separated)"
-            fullWidth
-            value={hosts}
-            onChange={(event) => setHosts(event.target.value)}
+        {/* Hosts — multi-select autocomplete */}
+        <Grid item xs={12} md={4}>
+          <Autocomplete
+            multiple
+            options={hostOptions}
+            getOptionLabel={(opt) =>
+              opt.alias ? `${opt.alias} (${opt.hostname})` : opt.hostname
+            }
+            value={selectedHosts}
+            onChange={(_e, value) => setSelectedHosts(value)}
+            renderTags={(value, getTagProps) =>
+              value.map((opt, index) => (
+                <Chip
+                  label={opt.alias || opt.hostname}
+                  size="small"
+                  {...getTagProps({ index })}
+                  key={opt.id}
+                />
+              ))
+            }
+            renderInput={(params) => (
+              <TextField {...params} label="Hosts" placeholder="Select hosts" />
+            )}
           />
         </Grid>
+
+        {/* Distro dropdown */}
         <Grid item xs={12} md={2}>
           <TextField
+            select
             label="Distro"
             fullWidth
             value={distro}
-            onChange={(event) => setDistro(event.target.value)}
-          />
+            onChange={(e) => {
+              setDistro(e.target.value);
+              setProfileName("");
+            }}
+          >
+            {distroOptions.map((d) => (
+              <MenuItem key={d} value={d}>
+                {d}
+              </MenuItem>
+            ))}
+          </TextField>
         </Grid>
+
+        {/* Profile dropdown */}
         <Grid item xs={12} md={3}>
           <TextField
-            label="Profile Name"
+            select
+            label="Profile"
             fullWidth
             value={profileName}
-            onChange={(event) => setProfileName(event.target.value)}
-          />
+            onChange={(e) => setProfileName(e.target.value)}
+            disabled={!distro || profilesLoading}
+            helperText={
+              profilesLoading
+                ? "Loading profiles…"
+                : !distro
+                  ? "Select a distro first"
+                  : profileOptions.length === 0
+                    ? "No profiles cached — fetch content first"
+                    : undefined
+            }
+          >
+            {profileOptions.map((p) => (
+              <MenuItem key={p.id} value={p.id}>
+                {shortProfileLabel(p.id)} — {p.title}
+              </MenuItem>
+            ))}
+          </TextField>
         </Grid>
-        <Grid item xs={12} md={3}>
+
+        {/* Profile path override */}
+        <Grid item xs={12} md={2}>
           <TextField
-            label="Profile Path (optional)"
+            label="Path override"
             fullWidth
             value={profilePath}
-            onChange={(event) => setProfilePath(event.target.value)}
-            helperText="Leave empty to auto-resolve from CAC cache"
+            onChange={(e) => setProfilePath(e.target.value)}
+            helperText="Optional manual path"
+            size="small"
+            sx={{ mt: "4px" }}
           />
         </Grid>
+
         <Grid item xs={12} md={1} display="flex" alignItems="center">
           <Button
             variant="contained"
             onClick={checkAndSubmit}
             disabled={loading}
-            startIcon={loading ? <CircularProgress size={16} /> : undefined}
+            startIcon={
+              loading ? <CircularProgress size={16} /> : undefined
+            }
           >
             Run
           </Button>
         </Grid>
       </Grid>
+
       <ReportDataGrid rows={rows} columns={columns} />
     </Box>
   );

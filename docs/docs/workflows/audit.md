@@ -11,25 +11,26 @@ An audit scans one or more hosts against a STIG baseline using OpenSCAP and repo
 
 ### 1. Verify Your Hosts
 
-Go to the **Hosts** page. Hosts from your SSH `known_hosts` are loaded automatically on startup. Verify the target appears in the list. If not, add it manually — enter the hostname, IP, SSH user, and OS distro, then click **Test** to confirm SSH connectivity before saving.
+Go to the **Hosts** page. Hosts are discovered from your SSH config file
+(`~/.ssh/config`) on startup. If you add or change entries, click
+**Re-scan SSH Config** to refresh the list.
 
-### 2. Ensure CAC Content Is Available
+### 2. CAC Content (Online vs Offline)
 
-Navigate to the **Audit** page. When you click **Run**, the UI automatically checks whether STIG content is cached for your selected distro. If not, a yellow banner appears:
+In Online mode, the profile list is fetched live from GitHub when you select a
+distro. When you click **Run**, the backend automatically downloads and caches
+the required artifacts if they are missing. In Offline mode, StreamGuard uses
+a local git clone.
 
-> **No cached CAC content found for rhel9. Fetch content from ComplianceAsCode first.**
-
-Click **Fetch Now**. StreamGuard downloads the latest ComplianceAsCode release ZIP and extracts the datastream XML and playbooks. This only needs to happen once per version — results are cached.
-
-See [CAC Content](./cac-content.md) for details on Online vs Offline modes.
+See [CAC Content](./cac-content.md) for details.
 
 ### 3. Configure the Scan
 
 | Field | Example | Notes |
 |---|---|---|
-| **Hosts** | `10.0.1.50, 10.0.1.51` | Comma-separated hostnames or IPs |
-| **Distro** | `rhel9` | Must match a supported CAC product ID |
-| **Profile Name** | `stig` | STIG profile to evaluate against |
+| **Hosts** | *(multi-select dropdown)* | Select one or more hosts from SSH config |
+| **Distro** | `rhel9` | Select from supported distro dropdown |
+| **Profile** | `xccdf_org.ssgproject.content_profile_stig` | Populated live from GitHub in Online mode |
 | **Profile Path** | *(leave empty)* | Auto-resolved from CAC cache; only set if using a custom file |
 
 ### 4. Run the Audit

@@ -19,6 +19,7 @@ services:
       - DATABASE_URL_SYNC=postgresql://streamguard:streamguard@db:5432/streamguard
       - CAC_GITHUB_URL=https://github.com/ComplianceAsCode/content
       - OFFLINE_MODE=false
+      - GITHUB_TOKEN=
       - SSH_KEY_PATH=/app/ssh/id_ed25519_personal
       - SSH_USER=root
       - MAX_CONCURRENT_HOSTS=10
