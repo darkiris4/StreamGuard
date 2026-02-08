@@ -15,7 +15,7 @@
     "@mui/icons-material": "^7.3.7",
     "@mui/material": "^5.16.7",
     "@mui/material": "^7.3.7",
-    "@mui/x-charts": "^7.20.0",
+    "@mui/x-charts": "^8.27.0",
     "@mui/x-data-grid": "^7.20.0",
     "@tanstack/react-table": "^8.20.5",
     "apexcharts": "^4.0.0",
