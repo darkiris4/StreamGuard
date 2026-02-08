@@ -12,7 +12,7 @@ export default function ComplianceGauge({ value }: Props) {
         <Typography variant="subtitle1" gutterBottom>
           Compliance Score
         </Typography>
-        <Gauge width={200} height={140} value={value} min={0} max={100} />
+        <Gauge width={200} height={140} value={value} valueMin={0} valueMax={100} />
       </CardContent>
     </Card>
   );
