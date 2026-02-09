@@ -6,6 +6,14 @@
 
 StreamGuard streamlines compliance workflows by treating security as a "stream" of continuous, automated processes—browsing profiles live from GitHub, scanning fleets in parallel, and applying fixes with minimal manual intervention. Built for simplicity, security, and scalability, it's ideal for enterprises, government agencies, or individual security practitioners handling DISA STIG requirements.
 
+> **Early Development — Contributors Welcome!**
+>
+> StreamGuard is under active development. The UI, API framework, and project
+> architecture are in place, but core workflows (multi-host scanning, Ansible
+> remediation, ISO building) are not yet fully functional. If you're interested
+> in DevSecOps, STIG compliance, or open-source tooling, we'd love your help —
+> check out the [Contributing](#contributing) section or open an issue to get started.
+
 ## Table of Contents
 - [Features](#features)
 - [Supported Distributions](#supported-distributions)
