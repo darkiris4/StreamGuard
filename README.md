@@ -46,7 +46,7 @@ StreamGuard provides a comprehensive suite of tools for STIG compliance:
 - **Custom Profiles**: Edit CAC STIG rules (e.g., modify variables, exclude rules), create/save custom XCCDF profiles, and use them for audits/mitigations.
 - **DevSecOps Visualizations**: Interactive dashboard with compliance score gauges, severity pies/bars (CAT I/II/III), top failing rules tables with sparklines, timeline charts for compliance trends, and a host matrix view.
 - **Real-Time Feedback**: WebSocket-based streaming for scan/mitigation logs and progress bars.
-- **Security-Focused Access**: Host interactions via passwordless SSH keys only—no passwords stored or transmitted. Hosts are discovered from `~/.ssh/config`.
+- **Security-Focused Access**: Host interactions via passwordless SSH keys only—no passwords stored or transmitted. Hosts are auto-discovered from `~/.ssh/config` and `known_hosts` on startup.
 - **Export Options**: Reports downloadable as HTML, PDF, CSV, or JSON.
 
 ## Supported Distributions
@@ -61,69 +61,113 @@ StreamGuard follows a full-stack architecture:
 - **Database**: Stores cached CAC content, custom profiles, scan results, and user preferences.
 - **External Integrations**:
   - ComplianceAsCode GitHub (live/raw fetches via requests/GitPython).
-  - OpenSCAP for audits (via openscap-py and CLI subprocess).
+  - OpenSCAP for audits (via oscap-ssh CLI subprocess).
   - Ansible for mitigations (via ansible-runner for programmatic execution).
   - ISO Tools (genisoimage/xorriso for building).
 - **Deployment**: Containerized with Docker Compose for easy setup; scalable to Kubernetes for production.
 - **Data Flow**: User → Frontend → API → Backend Processing (fetch CAC → Scan/Mitigate → Store Results) → Render Reports/Charts.
 
-High-level diagram (ASCII for now; replace with Mermaid or image):
-```
-User --> React Frontend (Dashboard, Forms, Charts)
-         |
-         v
-FastAPI Backend (API Endpoints, WebSockets)
-         |
-         +--> PostgreSQL (Cache, Profiles, Results)
-         +--> CAC GitHub (Live Fetch/Offline Cache)
-         +--> OpenSCAP (Audits)
-         +--> Ansible (Mitigations)
-         +--> ISO Builder (Kickstart/Preseed + genisoimage)
+```mermaid
+flowchart LR
+    subgraph streamguard["StreamGuard (Single Docker Compose Stack)"]
+        direction TB
+        FE["Frontend :3000"]
+        BE["Backend :8000 (FastAPI + oscap-ssh + ansible-runner + CAC fetch)"]
+        DB["PostgreSQL :5432"]
+
+        FE -->|"/api proxy"| BE
+        BE -->|"results & jobs"| DB
+
+        subgraph tools["Internal Backend Tools (all run inside backend container)"]
+            direction LR
+            CAC["CAC fetch (GitHub / cache)"]
+            OSCAP["oscap-ssh (audit)"]
+            ANS["ansible-runner (mitigate)"]
+        end
+
+        BE --> CAC
+        BE --> OSCAP
+        BE --> ANS
+    end
+
+    subgraph targets["Target Hosts on LAN"]
+        direction TB
+        H1["RHEL 8/9"]
+        H2["Ubuntu 22.04"]
+        H3["Debian 12"]
+    end
+
+    OSCAP -->|"SSH :22"| H1 & H2 & H3
+    ANS -->|"SSH :22"| H1 & H2 & H3
+
+    CAC -. "HTTPS" .-> GH["GitHub ComplianceAsCode"]
+
+    linkStyle default stroke:#aaa,stroke-width:2.5px
+
+    style streamguard fill:#1a1a2e,stroke:#16213e,color:#e0e0e0
+    style targets fill:#1a1a2e,stroke:#533483,color:#e0e0e0
+    style GH fill:#0d1117,stroke:#30363d,color:#e0e0e0
+
+    style FE fill:#1565c0,stroke:#0d47a1,color:#fff
+    style BE fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style DB fill:#6a1b9a,stroke:#4a148c,color:#fff
+
+    style CAC fill:#00695c,stroke:#004d40,color:#fff
+    style OSCAP fill:#e65100,stroke:#bf360c,color:#fff
+    style ANS fill:#e65100,stroke:#bf360c,color:#fff
 ```
 
 ## Tech Stack
-- **Backend**: Python 3.10+ with FastAPI, Pydantic, SQLModel, GitPython, Requests, ansible-runner, openscap-py.
-- **Frontend**: React 18+ with TypeScript, Vite (build tool), MUI X (Material UI Pro for DataGrid/Charts), TanStack Table (advanced tables), Recharts/ApexCharts (visualizations), Axios (API calls), Monaco Editor (for profile editing).
+- **Backend**: Python 3.11+ with FastAPI, Pydantic, SQLModel, GitPython, Requests, ansible-runner, oscap-ssh (subprocess).
+- **Frontend**: React 18+ with TypeScript, Vite (build tool), MUI X (DataGrid, Charts), TanStack Table (advanced tables), Recharts/ApexCharts (visualizations), Axios (API calls), Monaco Editor (for profile editing).
 - **Database**: PostgreSQL (production) / SQLite (development).
 - **Orchestration**: Ansible for remediation; subprocess for OpenSCAP and ISO tools.
 - **Deployment**: Docker Compose; Nginx as reverse proxy in production.
-- **Other Tools**: WebSockets (fastapi-websocket), asyncio (for parallel host ops), XML/JSON parsing for STIG handling.
+- **Other Tools**: WebSockets (built-in FastAPI support), asyncio (for parallel host ops), XML/JSON parsing for STIG handling.
 
 ## Project Structure
 ```
-streamguard/
-├── backend/                # FastAPI server and logic
-│   ├── main.py             # App entrypoint with routes
-│   ├── models/             # SQLModel DB schemas (e.g., profiles, results)
-│   ├── services/           # CAC fetch, audit, mitigate, ISO logic
-│   ├── ansible/            # Dynamic playbooks (fetched/cached)
-│   └── cac_cache/          # Local storage for offline mode (gitignore)
-├── frontend/               # React app
+StreamGuard/
+├── backend/                  # FastAPI server and logic
+│   ├── main.py               # App entrypoint, mounts routers
+│   ├── core/config.py        # Pydantic settings (env vars)
+│   ├── db.py                 # SQLModel engine & session helpers
+│   ├── models/               # SQLModel DB models (Host, AuditJob, Profile, …)
+│   ├── schemas/              # Pydantic request/response schemas
+│   ├── routers/              # FastAPI route modules (audit, cac, hosts, …)
+│   ├── services/             # CAC fetch, audit, mitigate, ISO, SSH discovery
+│   ├── alembic/              # DB migrations
+│   ├── tests/                # Pytest test suite
+│   └── cac_cache/            # Local CAC storage for offline mode (gitignored)
+├── frontend/                 # React app
 │   ├── src/
-│   │   ├── components/     # Reusable UI (e.g., DataGridReport, ComplianceChart)
-│   │   ├── pages/          # Dashboard, Audit, Mitigate, ISOBuilder, ProfileEditor
-│   │   ├── api/            # Axios wrappers for endpoints
-│   │   └── utils/          # Helpers (e.g., WebSocket client)
-│   ├── vite.config.ts      # Vite setup
-│   └── package.json        # Deps (mui/x-data-grid-pro, recharts, etc.)
-├── isos/                   # Generated ISO outputs (gitignore)
-├── docs/                   # Additional docs, diagrams
-├── docker-compose.yml      # Multi-container setup
-├── Dockerfile.backend      # Backend container
-├── Dockerfile.frontend     # Frontend container
-├── .env.example            # Sample env vars
-├── requirements.txt        # Backend deps
-├── package.json            # Root if needed (monorepo tools)
-├── README.md               # This file
-├── LICENSE                 # GPL-3.0
-└── .gitignore              # Ignore node_modules, cac_cache, etc.
+│   │   ├── components/       # Reusable UI (DataGrid, ComplianceGauge, Charts, …)
+│   │   ├── pages/            # Dashboard, Audit, Mitigate, ISOBuilder, ProfileEditor
+│   │   ├── api/              # Axios client and endpoint wrappers
+│   │   └── hooks/            # Custom hooks (e.g., useWebSocket)
+│   ├── vite.config.ts        # Vite setup with API proxy
+│   └── package.json          # Deps (mui/x-data-grid, recharts, etc.)
+├── docs/                     # Docusaurus user guide
+├── .github/                  # CI workflows, issue/PR templates, Dependabot
+├── docker-compose.yml        # Multi-container setup
+├── Dockerfile.backend        # Backend container
+├── Dockerfile.frontend       # Frontend container
+├── .env.example              # Sample env vars
+├── requirements.txt          # Backend Python deps
+├── pyproject.toml            # Ruff linter configuration
+├── alembic.ini               # Alembic migration config
+├── README.md                 # This file
+├── LICENSE                   # GPL-3.0
+├── SECURITY.md               # Security policy
+├── CONTRIBUTING.md            # Contribution guidelines
+└── CODE_OF_CONDUCT.md         # Code of conduct
 ```
 
 ## Installation
 
 ### Prerequisites
-- Python 3.10+
-- Node.js 18+
+- Python 3.11+
+- Node.js 20+
 - Docker (for containerized setup)
 - System deps: openscap-utils, ansible, genisoimage/xorriso (install via package manager, e.g., `apt install` or `yum install`)
 - Git
@@ -160,13 +204,17 @@ Preview at `http://localhost:3000/docs`.
 
 ### Environment Variables
 Copy `.env.example` and customize:
-- `DATABASE_URL_SYNC=postgresql://user:pass@localhost/db` (or sqlite:///)
-- `DATABASE_URL=postgresql+asyncpg://user:pass@localhost/db` (future async usage)
+- `DATABASE_URL_SYNC=postgresql://user:pass@db/streamguard` (or `sqlite:///streamguard.db` for dev)
+- `DATABASE_URL=postgresql+asyncpg://user:pass@db/streamguard` (async variant)
 - `OFFLINE_MODE=false` (toggle to true for local git clone)
-- `GITHUB_TOKEN=` (optional; raises GitHub API limit to 5000/hr)
-- `SSH_KEY_PATH=/path/to/id_ed25519` (default key inside container; auto-detected if present)
-- `ANSIBLE_INVENTORY=/path/to/hosts.ini` (default dynamic)
+- `SSH_KEY_PATH=/app/ssh/id_ed25519` (path inside container; auto-detected if present)
+- `SSH_USER=root` (default SSH username for host connections)
+- `CAC_RELEASE_VERSION=latest` (pin to a specific version if desired)
 - `CORS_ORIGINS=http://localhost:5173,http://localhost:3000`
+
+Optional (set in `.env` but not in `.env.example`):
+- `GITHUB_TOKEN=` (raises GitHub API rate limit to 5000/hr)
+- `ANSIBLE_INVENTORY=/path/to/hosts.ini` (default: dynamic)
 
 ### SSH Key Setup for Hosts
 - Generate SSH key: `ssh-keygen -t ed25519`
@@ -181,14 +229,13 @@ Copy `.env.example` and customize:
 ## Usage
 
 ### Dashboard Overview
-- Login (optional basic auth).
-- Toggle live/offline.
+- Toggle live/offline mode.
 - Select distro from dropdown.
 - View fleet compliance summary: Gauge for overall score, pie for severities, timeline chart for trends.
 
 ### Auditing Hosts
 1. Go to Audit page.
-2. Select hosts from the dropdown (loaded from `~/.ssh/config`).
+2. Select hosts from the dropdown (auto-discovered from `~/.ssh/config` and `known_hosts`).
 3. Select distro and profile (profiles are listed live from GitHub in Online mode).
 4. Trigger: Runs parallel scans (artifacts auto-download on Run if missing).
 5. View report: Sortable DataGrid (columns: Rule ID, Severity, Status, Description, Fix). Filter by CAT level. Export XML/HTML.
@@ -250,10 +297,10 @@ curl -X POST "http://localhost:8000/api/audit" -H "Content-Type: application/jso
 - Logs: Check Docker or uvicorn output.
 
 ## Contributing
-We welcome contributions! Fork, create branch, PR.
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details. Fork, create branch, PR.
 - Issues: Use GitHub for bugs/features.
-- Code Style: Black for Python, Prettier for JS/TS.
-- Tests: Pytest (backend), Jest (frontend)—aim for 80% coverage.
+- Code Style: Ruff for Python linting, Prettier for JS/TS.
+- Tests: Pytest (backend)—aim for 80% coverage.
 
 ## Roadmap
 - v1.0: Core features as described.
