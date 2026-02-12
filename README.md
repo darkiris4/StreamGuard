@@ -133,44 +133,6 @@ flowchart LR
 - **Deployment**: Docker Compose; Nginx as reverse proxy in production.
 - **Other Tools**: WebSockets (built-in FastAPI support), asyncio (for parallel host ops), XML/JSON parsing for STIG handling.
 
-## Project Structure
-```
-StreamGuard/
-├── backend/                  # FastAPI server and logic
-│   ├── main.py               # App entrypoint, mounts routers
-│   ├── core/config.py        # Pydantic settings (env vars)
-│   ├── db.py                 # SQLModel engine & session helpers
-│   ├── models/               # SQLModel DB models (Host, AuditJob, Profile, …)
-│   ├── schemas/              # Pydantic request/response schemas
-│   ├── routers/              # FastAPI route modules (audit, cac, hosts, …)
-│   ├── services/             # CAC fetch, audit, mitigate, ISO, SSH discovery
-│   ├── alembic/              # DB migrations
-│   ├── tests/                # Pytest test suite
-│   └── cac_cache/            # Local CAC storage for offline mode (gitignored)
-├── frontend/                 # React app
-│   ├── src/
-│   │   ├── components/       # Reusable UI (DataGrid, ComplianceGauge, Charts, …)
-│   │   ├── pages/            # Dashboard, Audit, Mitigate, ISOBuilder, ProfileEditor
-│   │   ├── api/              # Axios client and endpoint wrappers
-│   │   └── hooks/            # Custom hooks (e.g., useWebSocket)
-│   ├── vite.config.ts        # Vite setup with API proxy
-│   └── package.json          # Deps (mui/x-data-grid, recharts, etc.)
-├── docs/                     # Docusaurus user guide
-├── .github/                  # CI workflows, issue/PR templates, Dependabot
-├── docker-compose.yml        # Multi-container setup
-├── Dockerfile.backend        # Backend container
-├── Dockerfile.frontend       # Frontend container
-├── .env.example              # Sample env vars
-├── requirements.txt          # Backend Python deps
-├── pyproject.toml            # Ruff linter configuration
-├── alembic.ini               # Alembic migration config
-├── README.md                 # This file
-├── LICENSE                   # GPL-3.0
-├── SECURITY.md               # Security policy
-├── CONTRIBUTING.md            # Contribution guidelines
-└── CODE_OF_CONDUCT.md         # Code of conduct
-```
-
 ## Installation
 
 ### Prerequisites
